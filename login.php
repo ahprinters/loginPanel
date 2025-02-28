@@ -1,19 +1,40 @@
 <?php
 session_start();
+require_once 'database/config.php';
 
-$valid_username = "faisal";
-$valid_password = "123456";
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $database = new Database();
+    $db = $database->getConnection();
 
-if ( isset( $_POST['username'] ) && isset( $_POST['password'] ) ) {
-    $username = $_POST['username'];
-    $password = $_POST['password'];
+    try {
+        $username = $_POST['username'];
+        $password = $_POST['password'];
 
-    if ( $username == $valid_username && $password == $valid_password ) {
-        $_SESSION['username'] = $username;
-        header( "Location: welcome.php" );
-        exit();
-    } else {
-        echo "Invalid username or password.";
+        // Prepare query
+        $stmt = $db->prepare("SELECT * FROM users WHERE username = ?");
+        $stmt->execute([$username]);
+        
+        if ($stmt->rowCount() > 0) {
+            $user = $stmt->fetch(PDO::FETCH_ASSOC);
+            
+            if (password_verify($password, $user['password'])) {
+                // Password is correct, create session
+                $_SESSION['user_id'] = $user['id'];
+                $_SESSION['username'] = $user['username'];
+                
+                // Redirect to dashboard or home page
+                header("Location: dashboard.php");
+                exit();
+            } else {
+                header("Location: index.php?error=invalid_credentials");
+                exit();
+            }
+        } else {
+            header("Location: index.php?error=invalid_credentials");
+            exit();
+        }
+    } catch(PDOException $e) {
+        echo "Error: " . $e->getMessage();
     }
 }
 ?>
